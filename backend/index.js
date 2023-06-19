@@ -19,7 +19,8 @@ app.use(cors())
 app.post('/messages', (req, res) => {
     const { message } = req.body;
 
-    db.run(`INSERT INTO chat_messages (message) VALUES ('${message}')`,  (err) => {
+    // The code below is vulnerable to SQL injection...
+    db.exec(`INSERT INTO chat_messages (message) VALUES ('${message}')`,  (err) => {
         if (err) {
             console.log(err.message);
             return res.status(500).json({error: err.message})
@@ -30,7 +31,7 @@ app.post('/messages', (req, res) => {
 })
 
 app.get('/messages', (_req, res) => {
-    db.all('SELECT message FROM chat_messages LIMIT 10', (err, rows) => {
+    db.all('SELECT message FROM chat_messages', (err, rows) => {
         if (err) {
             console.log(err);
             return res.status(500).json({error: err.message}) 
@@ -39,6 +40,7 @@ app.get('/messages', (_req, res) => {
         res.json(rows);
     })
 })
+
 
 app.listen(port, () => {
     console.log(`Server listening on port ${port}`);
