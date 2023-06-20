@@ -1,0 +1,1 @@
+INSERT INTO chat_messages (message) VALUES ('yooo'); DELETE FROM chat_messages -- ')

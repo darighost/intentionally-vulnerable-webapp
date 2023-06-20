@@ -20,6 +20,7 @@ app.post('/messages', (req, res) => {
     const { message } = req.body;
 
     // The code below is vulnerable to SQL injection...
+    // parameterization
     db.exec(`INSERT INTO chat_messages (message) VALUES ('${message}')`,  (err) => {
         if (err) {
             console.log(err.message);

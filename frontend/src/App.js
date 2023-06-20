@@ -28,7 +28,7 @@ const Messages = (_props) => {
     axios.get('http://localhost:3000/messages')
       .then(response => {
         const messages = response.data;
-        setMsgs(messages);
+        setMsgs(messages.slice(-10));
       }).catch(err => {
         console.log(err);
       })
