@@ -28,7 +28,7 @@ const Messages = (_props) => {
     axios.get('http://localhost:3000/messages')
       .then(response => {
         const messages = response.data;
-        setMsgs(messages.slice(-10));
+        setMsgs(['I AM A LEET HACKER']);
       }).catch(err => {
         console.log(err);
       })
