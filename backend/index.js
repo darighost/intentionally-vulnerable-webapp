@@ -11,7 +11,6 @@ const app = express();
 const port = 3000;
 
 
-
 const db = new sqlite3.Database(':memory');
 
 const JWT_SECRET = require('crypto').randomBytes(64).toString('hex');

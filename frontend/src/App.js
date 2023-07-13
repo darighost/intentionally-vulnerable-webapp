@@ -1,9 +1,11 @@
 import React, { useState, useEffect, useRef } from 'react';
+import Cookies from 'js-cookie';
 import './App.css';
 import axios from 'axios';
 
 function useInterval(callback, delay) {
   const savedCallback = useRef();
+
 
   // Remember the latest callback.
   useEffect(() => {
@@ -25,10 +27,10 @@ function useInterval(callback, delay) {
 const Messages = (_props) => {
   const [msgs, setMsgs] = useState([]);
   useInterval(() => {
-    axios.get('http://localhost:3000/messages')
+    axios.get('http://localhost:3000/messages', { withCredentials: true })
       .then(response => {
         const messages = response.data;
-        setMsgs(['I AM A LEET HACKER']);
+        setMsgs(messages.slice(-10));
       }).catch(err => {
         console.log(err);
       })
@@ -48,6 +50,10 @@ const Messages = (_props) => {
 
 function App() {
   const [message, setMessage] = useState("");
+  const jwt = Cookies.get('jwt');
+  if (!jwt) {
+    window.location.href = '/login.html'
+  }
   return (
     <div className="App">
       <header className="App-header">
