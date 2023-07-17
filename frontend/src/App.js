@@ -59,6 +59,7 @@ function App() {
       <header className="App-header">
         <div class="message-container">
           <h1>kRaZy chat wall</h1>
+
           <Messages />
           Message: <input value={message} onChange={event => setMessage(event.target.value)} />
           <button onClick={()=>{
@@ -66,6 +67,9 @@ function App() {
             setMessage("");
           }}>Submit</button>
         </div>
+        <form method="post" action="http://localhost:3000/logout" style={{paddingTop: "50px"}}>
+            <input type="submit" value="Logout" />
+          </form>
       </header>
     </div>
   );

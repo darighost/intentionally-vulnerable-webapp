@@ -6,6 +6,12 @@ const { execSync } = require("child_process");
 const { verify, sign } = require('jsonwebtoken');
 const cookieParser = require("cookie-parser");
 
+const crypto = require('crypto');
+
+
+const hashify = (plaintext) => 
+    crypto.createHash('md5').update(plaintext).digest('hex');
+
 
 const app = express();
 const port = 3000;
@@ -18,6 +24,12 @@ const JWT_SECRET = require('crypto').randomBytes(64).toString('hex');
 db.run(`CREATE TABLE IF NOT EXISTS chat_messages (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     message TEXT
+)`);
+
+db.run(`CREATE TABLE IF NOT EXISTS users (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    username TEXT,
+    password TEXT
 )`);
 
 function generateAccessToken(data) {
@@ -34,33 +46,73 @@ app.use(cors(corsOptions))
 app.use(express.urlencoded({extended: true})); 
 app.use(cookieParser());
 
+
+
 // check for JWT
 app.use((req, res, next) => {
     const { jwt } = req.cookies;
-    if (req.path.includes('login_attempt')) {
+    const jwtWhitelist = ['login_attempt', 'register'];
+    if (jwtWhitelist.some(whitePath => req.path.includes(whitePath))) {
+        console.log('we are in the whitelist')
         next();
+    } else {
+        verify(jwt, JWT_SECRET, (err, user) => {
+            if (err) {
+                console.log(err, jwt)
+                res.redirect('http://localhost:3001/login.html');
+            } else {
+                console.log('jwt is valid')
+                next()
+            }
+          })    
     }
-    verify(jwt, JWT_SECRET, (err, user) => {
-        if (err) {
-            console.log(err, jwt)
-            res.redirect('http://localhost:3001/login.html');
-        } else {
-            console.log('jwt is valid')
-            next()
-        }
-      })
+    
     
   })
 
-app.post('/login_attempt', (req, res) => {
+app.post('/register', (req, res) => {
     const user = req.body.user;
     const pass = req.body.pass;
-    console.log(user, pass)
-    if (user === 'admin' && pass === 'hello') {
+    const passHash = hashify(pass);
+
+    db.run(`INSERT INTO users (username, password) VALUES ('${user}', '${passHash}')`);
+    res.redirect('http://localhost:3001/login.html');
+
+})
+
+// this is vulnerable to CSRF. The logout button, should use a CSRF token
+app.post('/logout', (req, res) => {
+    res.clearCookie("jwt");
+    res.redirect('/login.html');
+})
+
+app.post('/login_attempt', async (req, res) => {
+    const user = req.body.user;
+    const pass = req.body.pass;
+    const passHash = hashify(pass);
+
+    const dbUserPromise = new Promise((resolve, reject) => {
+        db.all(`SELECT * FROM users WHERE username='${user}' AND password='${passHash}'`, (err, res) => {
+            if (err) {
+                console.log(err)
+                reject(err)
+            }
+            console.log(res)
+            resolve(res)
+        })
+    })
+    try {
+        const dbUser = await dbUserPromise;
+        console.log(dbUser)
+        if (!dbUser) {
+            res.redirect('http://localhost:3001/login.html');
+            return;
+        }
         const jwtCookie = generateAccessToken({ loggedIn: true });
         res.cookie('jwt', jwtCookie);
         res.redirect('http://localhost:3001');
-    } else {
+    } catch (e) {
+        console.log(e)
         res.redirect('http://localhost:3001/login.html');
     }
 })
