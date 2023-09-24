@@ -1,7 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import Cookies from 'js-cookie';
 import './App.css';
-import axios from 'axios';
 
 function useInterval(callback, delay) {
   const savedCallback = useRef();
@@ -27,13 +26,11 @@ function useInterval(callback, delay) {
 const Messages = (_props) => {
   const [msgs, setMsgs] = useState([]);
   useInterval(() => {
-    axios.get('http://localhost:3000/messages', { withCredentials: true })
-      .then(response => {
-        const messages = response.data;
+    fetch('/messages').then(res => {
+      res.json().then(messages => {
         setMsgs(messages.slice(-10));
-      }).catch(err => {
-        console.log(err);
       })
+    })
   }, 1000);
 
   return <div style={{
@@ -63,13 +60,17 @@ function App() {
           <Messages />
           Message: <input value={message} onChange={event => setMessage(event.target.value)} />
           <button onClick={()=>{
-            axios.post('http://localhost:3000/messages', {message});
+            fetch("/messages", {
+              headers: {
+                'Accept': 'application/json',
+                'Content-Type': 'application/json'
+              },
+              method: "POST",
+              body: JSON.stringify({message})
+            })
             setMessage("");
           }}>Submit</button>
         </div>
-        <form method="post" action="http://localhost:3000/logout" style={{paddingTop: "50px"}}>
-            <input type="submit" value="Logout" />
-          </form>
       </header>
     </div>
   );

