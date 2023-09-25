@@ -59,22 +59,15 @@ function App() {
 
           <Messages />
           Message: <input value={message} onChange={event => setMessage(event.target.value)} />
-          <button onClick={async ()=>{
-            const res = await fetch("/check_funds");
-            const { funds } = await res.json();
-            if (funds <= 0) {
-              alert('YOU HAVE INSUFFICIENT FUNDS');
-            } else {
-              await fetch("/messages", {
-                headers: {
-                  'Accept': 'application/json',
-                  'Content-Type': 'application/json'
-                },
-                method: "POST",
-                body: JSON.stringify({message})
-              })
-            }
-            
+          <button onClick={()=>{
+            fetch("/messages", {
+              headers: {
+                'Accept': 'application/json',
+                'Content-Type': 'application/json'
+              },
+              method: "POST",
+              body: JSON.stringify({message})
+            })
             setMessage("");
           }}>Submit</button>
         </div>
