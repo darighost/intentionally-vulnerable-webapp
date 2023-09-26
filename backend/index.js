@@ -2,10 +2,10 @@ const express = require('express');
 const sqlite3 = require('sqlite3').verbose();
 const bodyParser = require('body-parser');
 const cors = require('cors');
-const { execSync } = require("child_process");
-const { verify, sign } = require('jsonwebtoken');
+const { sign } = require('jsonwebtoken');
 const cookieParser = require("cookie-parser");
 
+const funds = {}
 
 const crypto = require('crypto');
 const SALT = 'blah blah blah i love salty food';
@@ -20,20 +20,7 @@ const port = 3000;
 
 const db = new sqlite3.Database(':memory');
 
-const checkBalance = (username) => {
-    return new Promise((resolve, reject) => {
-        db.get(`SELECT id FROM users WHERE username='${username}'`, (err, row) => {
-            if (err) {
-                reject(err);
-            } else {
-                const userid = row.id;
-                db.get(`SELECT balance FROM funds WHERE userid='${userid}'`, (err, row) => {
-                    resolve(row);
-                })
-            }
-        })
-    })
-}
+
 
 const JWT_SECRET = require('crypto').randomBytes(64).toString('hex');
 
@@ -60,7 +47,7 @@ function generateAccessToken(data) {
 
 const corsOptions = {
     credentials: true,
-    origin: 'http://localhost:3001',
+    origin: 'http://localhost:3001'
 }
 
 app.use(bodyParser.json())
@@ -72,24 +59,7 @@ app.use(cookieParser());
 
 // check for JWT
 app.use((req, res, next) => {
-    const { jwt } = req.cookies;
-    const jwtWhitelist = ['login_attempt', 'register'];
-    if (jwtWhitelist.some(whitePath => req.path.includes(whitePath))) {
-
-        next();
-    } else {
-        verify(jwt, JWT_SECRET, (err, user) => {
-            if (err) {
-                console.log('actually not good')
-                console.log(jwt)
-                res.redirect('http://localhost:3001/login.html');
-            } else {
-                next()
-            }
-          })    
-    }
-    
-    
+    next();
   })
 
 app.post('/register', (req, res) => {
@@ -99,7 +69,6 @@ app.post('/register', (req, res) => {
 
     db.run(`INSERT INTO users (username, password) VALUES ('${user}', '${passHash}')`);
     res.redirect('http://localhost:3001/login.html');
-
 })
 
 // this is vulnerable to CSRF. The logout button, should use a CSRF token
@@ -137,10 +106,7 @@ app.post('/login_attempt', async (req, res) => {
     
 
 app.post('/messages', async (req, res) => {
-    const { message, username } = req.body;
-
-    const balance = await checkBalance(username);
-    console.log('balance:', balance);
+    const { message } = req.body;
 
     db.all('SELECT message FROM chat_messages', (err, rows) => {
         if (err) {
@@ -154,11 +120,6 @@ app.post('/messages', async (req, res) => {
     // The code below is vulnerable to SQL injection...
     // parameterization
     db.exec(`INSERT INTO chat_messages (message) VALUES ('${message}')`,  (err) => {
-        if (err) {
-            return res.status(500).json({error: err.message});
-        }
-
-        res.json({message});
     })
 })
 
@@ -166,19 +127,11 @@ app.post('/deposit', (req, res) => {
     const { username, amount } = req.body;
 
     db.get(`SELECT id FROM users WHERE username='${username}'`, (err, row) => {
-            db.get(`SELECT amount FROM funds WHERE userid=${row.id}`, (err, newRow) => {
-                if (row) {
-                    console.log(row)
-                } else {
-                    
-                }
+        db.exec(`UPDATE users SET amount=${amount} WHERE userid=${row.id}`);
+    });
     res.end('ok')
 });
 
-app.post('/balance', (req, res) => {
-    const { username } = req.body;
-    res.end({ username: await checkBalance(username) });
-});
 
 app.get('/messages', (_req, res) => {
     db.all('SELECT message FROM chat_messages', (err, rows) => {
@@ -190,6 +143,21 @@ app.get('/messages', (_req, res) => {
     })
 })
 
+app.post('/spend', (req, res) => {
+    const { user  } = req.body;
+    funds[user] -= 10;
+    console.log(funds)
+    res.json({ funds: funds[user] });
+})
+
+app.post('/check_funds', (req, res) => {
+    const { user  } = req.body;
+    if (!funds.hasOwnProperty(user)) {
+        funds[user] = 50;
+    }
+
+    res.json({funds: funds[user]});
+})
 
 app.listen(port, () => {
     console.log(`Server listening on port ${port}`);
