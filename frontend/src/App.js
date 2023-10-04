@@ -71,12 +71,12 @@ function App() {
     }).then(newFunds => {
       setFunds(newFunds.funds);
     })
-  }, [])
-  const user  = parseJwt(document.cookie.split('jwt=')[1]).user
+  }, []);
   const jwt = Cookies.get('jwt');
   if (!jwt) {
     window.location.href = '/login.html'
   }
+  const user = parseJwt(document.cookie.split('jwt=')[1]).user;
   return (
     <div className="App">
       <header className="App-header">
