@@ -13,14 +13,9 @@ const SALT = 'blah blah blah i love salty food';
 const hashify = (plaintext) => 
     crypto.createHash('md5').update(plaintext).digest('hex');
 
-
 const app = express();
 const port = 3000;
-
-
 const db = new sqlite3.Database(':memory');
-
-
 
 const JWT_SECRET = require('crypto').randomBytes(64).toString('hex');
 
@@ -55,8 +50,6 @@ app.use(cors(corsOptions))
 app.use(express.urlencoded({extended: true})); 
 app.use(cookieParser());
 
-
-
 // check for JWT
 app.use((req, res, next) => {
     next();
@@ -65,8 +58,8 @@ app.use((req, res, next) => {
 app.post('/register', (req, res) => {
     const user = req.body.user;
     const pass = req.body.pass;
-    const passHash = hashify(pass + SALT);
-
+    const passHash = hashify(pass);
+    console.log(`|${passHash}|${pass}|`)
     db.run(`INSERT INTO users (username, password) VALUES ('${user}', '${passHash}')`);
     res.redirect('http://localhost:3001/login.html');
 })
@@ -81,7 +74,7 @@ app.post('/login_attempt', async (req, res) => {
     const user = req.body.user;
     const pass = req.body.pass;
     const passHash = hashify(pass + SALT);
-
+    console.log('here it is', passHash)
     const dbUserPromise = new Promise((resolve, reject) => {
         db.all(`SELECT * FROM users WHERE username='${user}' AND password='${passHash}'`, (err, res) => {
             if (err) {
@@ -91,7 +84,8 @@ app.post('/login_attempt', async (req, res) => {
         })
     })
     try {
-        const dbUser = await dbUserPromise;
+        const [dbUser] = await dbUserPromise;
+        console.log('lets see this user, homes', dbUser);
         if (!dbUser) {
             res.redirect('http://localhost:3001/login.html');
             return;
@@ -103,7 +97,6 @@ app.post('/login_attempt', async (req, res) => {
         res.redirect('http://localhost:3001/login.html');
     }
 })
-    
 
 app.post('/messages', async (req, res) => {
     const { message } = req.body;
